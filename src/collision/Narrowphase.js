@@ -455,8 +455,13 @@ Narrowphase.prototype.convexCapsule = function(
     // Check center rect
     var r = convexCapsule_tempRect;
     setConvexToCapsuleShapeMiddle(r,capsuleShape);
+    
+    r.body = capsuleBody;
+    
     var result = this.convexConvex(convexBody,convexShape,convexPosition,convexAngle, capsuleBody,r,capsulePosition,capsuleAngle, justTest);
 
+    r.body = null;
+    
     return result + result1 + result2;
 };
 
