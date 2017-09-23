@@ -344,7 +344,14 @@ function World(options){
         contactEquations: null,
         frictionEquations: null
     };
-
+    
+    /**
+     * Fired just after bodies has integrated and reset their forces
+     * @event afterIntegratingBodies
+     */
+    this.afterIntegratingBodiesEvent = {
+        type: "afterIntegratingBodies"
+    };
 }
 World.prototype = new Object(EventEmitter.prototype);
 World.prototype.constructor = World;
@@ -780,6 +787,8 @@ World.prototype.internalStep = function(dt){
     for(var i=0; i!==Nbodies; i++){
         bodies[i].setZeroForce();
     }
+    
+    this.emit(this.afterIntegratingBodiesEvent);
 
     // Emit impact event
     if(this.emitImpactEvent && this.has('impact')){
