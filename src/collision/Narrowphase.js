@@ -119,6 +119,10 @@ function Narrowphase(){
      * @type {ContactMaterial}
      */
     this.currentContactMaterial = null;
+  
+    this.temp = {};
+    this.temp.fromCapsuleCapsuleShape = null;
+    this.temp.fromConvexCapsuleShape = null;
 }
 
 var bodiesOverlap_shapePositionA = createVec2();
@@ -239,6 +243,9 @@ Narrowphase.prototype.reset = function(){
  * @return {ContactEquation}
  */
 Narrowphase.prototype.createContactEquation = function(bodyA, bodyB, shapeA, shapeB){
+    if ( shapeA.body == null || shapeB.body == null )
+      throw new Error("aaaaaa");
+  
     var c = this.contactEquationPool.get();
     var currentContactMaterial = this.currentContactMaterial;
     c.bodyA = bodyA;
@@ -456,12 +463,12 @@ Narrowphase.prototype.convexCapsule = function(
     var r = convexCapsule_tempRect;
     setConvexToCapsuleShapeMiddle(r,capsuleShape);
     
-    r.body = capsuleBody;
-    
-    var result = this.convexConvex(convexBody,convexShape,convexPosition,convexAngle, capsuleBody,r,capsulePosition,capsuleAngle, justTest);
+    this.temp.fromConvexCapsuleShape = capsuleShape;
 
-    r.body = null;
-    
+    var result = this.convexConvex(convexBody,convexShape,convexPosition,convexAngle, capsuleBody,r,capsulePosition,capsuleAngle, justTest);
+  
+    this.temp.fromConvexCapsuleShape = null;
+  
     return result + result1 + result2;
 };
 
@@ -565,7 +572,12 @@ Narrowphase.prototype.capsuleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTe
     // Check circles against the center boxs
     var rect = capsuleCapsule_tempRect1;
     setConvexToCapsuleShapeMiddle(rect,si);
+  
+    this.temp.fromCapsuleCapsuleShape = si;
+  
     var result1 = this.convexCapsule(bi,rect,xi,ai, bj,sj,xj,aj, justTest);
+  
+    this.temp.fromCapsuleCapsuleShape = null;
 
     if(this.enableFrictionReduction){
         this.enableFriction = enableFrictionBefore;
@@ -583,7 +595,12 @@ Narrowphase.prototype.capsuleCapsule = function(bi,si,xi,ai, bj,sj,xj,aj, justTe
     }
 
     setConvexToCapsuleShapeMiddle(rect,sj);
+  
+    this.temp.fromCapsuleCapsuleShape = sj;
+  
     var result2 = this.convexCapsule(bj,rect,xj,aj, bi,si,xi,ai, justTest);
+  
+    this.temp.fromCapsuleCapsuleShape = null;
 
     if(this.enableFrictionReduction){
         this.enableFriction = enableFrictionBefore;
@@ -1068,7 +1085,12 @@ Narrowphase.prototype.circleConvex = function(
         scale(closestEdgeProjectedPoint, normal, minCandidateDistance);
         add(closestEdgeProjectedPoint,closestEdgeProjectedPoint,candidate);
 
-        var c = this.createContactEquation(circleBody,convexBody,circleShape,convexShape);
+        var tempConvexShape = convexShape;
+      
+        if ( this.temp.fromCapsuleCapsuleShape != null )
+          tempConvexShape = this.temp.fromCapsuleCapsuleShape;
+      
+        var c = this.createContactEquation(circleBody,convexBody,circleShape,tempConvexShape);
         sub(c.normalA, candidate, circleOffset);
         normalize(c.normalA, c.normalA);
 
@@ -1105,7 +1127,12 @@ Narrowphase.prototype.circleConvex = function(
                 vec2.toGlobalFrame(worldVertex, localVertex, convexOffset, convexAngle);
                 sub(dist, worldVertex, circleOffset);
 
-                var c = this.createContactEquation(circleBody,convexBody,circleShape,convexShape);
+                var tempConvexShape = convexShape;
+      
+                if ( this.temp.fromCapsuleCapsuleShape != null )
+                  tempConvexShape = this.temp.fromCapsuleCapsuleShape;
+              
+                var c = this.createContactEquation(circleBody,convexBody,circleShape,tempConvexShape);
 
                 copy(c.normalA, dist);
                 normalize(c.normalA,c.normalA);
@@ -2040,7 +2067,20 @@ Narrowphase.prototype.convexConvex = function(
 
             ++pointCount;
 
-            var c = this.createContactEquation(body1,body2,poly1,poly2);
+            var poly1temp = poly1;
+            var poly2temp = poly2;
+          
+            if ( this.temp.fromCapsuleCapsuleShape !== null ) {
+              if ( poly1temp == polyA ) poly1temp = this.temp.fromCapsuleCapsuleShape;
+              else if ( poly2temp == polyA ) poly2temp = this.temp.fromCapsuleCapsuleShape;
+            }
+          
+            if ( this.temp.fromConvexCapsuleShape !== null ) {
+              if ( poly1temp == polyB ) poly1temp = this.temp.fromConvexCapsuleShape;
+              else if ( poly2temp == polyB ) poly2temp = this.temp.fromConvexCapsuleShape;
+            }
+          
+            var c = this.createContactEquation(body1,body2,poly1temp,poly2temp);
 
             vec2.copy(c.normalA, normal);
             vec2.copy(c.contactPointB, clipPoints2[i]);
